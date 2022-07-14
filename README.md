@@ -43,3 +43,4 @@ ttft_text_scale = 2; //from now on, text size would be 2
 //...
 //change the color or text scale if you like
 ```
+![Waterfall example on a ST7735 display](https://github.com/Tiranoid/ttft_bitbang/blob/main/ttft_bitbang.jpg)
