@@ -22,20 +22,20 @@
 extern "C" {
 #endif
 
-//Include MCU-specific headers
-#include "stm8s.h"
-#include "delay.h"
 
 // SETUP THE DISPLAY IN THE SOURCE FILE
 // UNCOMMENT THE DISPLAY TYPE IN SOURCE FILE
 
+#include "stm8s.h"
+#include "delay.h"
 
 
-
-extern int16_t ttft_fore_color, ttft_back_color;
+extern int16_t ttft_fore_color, ttft_back_color, ttft_xpos, ttft_ypos;
 extern uint8_t ttft_text_scale;
 
 void ttft_init_disp_io (void);
+void ttft_init_disp(void);
+void ttft_clear_section(int16_t xx, int16_t yy);
 void ttft_clear_disp (void);
 void ttft_disp_on (void);
 int16_t ttft_get_color (int16_t r, int16_t g, int16_t b);
@@ -56,7 +56,7 @@ void ttft_write( char *p);
 void ttft_write_int(int16_t n);
 void TestChart (void);
 //void BarChart (void);
-void Waterfall (void);
+//void Waterfall (void);
 #ifdef __cplusplus
 }
 #endif

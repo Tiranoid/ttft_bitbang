@@ -5,11 +5,14 @@ This is a rework of the excellent bit-banged TFT library by "David Johnson-Davie
 
 **For more info, read the [original post](http://www.technoblogy.com/show?3WAI).**
 
-#### My revisions include:
+#### My revisions include[Rev 0]:
 - changed the "int"s to a more restrict variable size of int16_t, int8_t ...
 - changed the function names so they won't interfere with other things. 
   every function/variable observable by the main program, starts with "ttft_"
 - added a fast "abs" function. you can get rid of that stdlib.h if you don't like it, see the header file.
+#####[Rev1, 7-14-2022]:
+- the `ttft_init_disp_io()` defers from `ttft_init_disp` now; first one is optional since you can config them in your code and simply call the dispaly routines only.
+- a `void ttft_clear_section(int16_t xx, int16_t yy)` is added where a section of screen is deleted quickly using 12bit color data.
 
 ## EZ Usage:
 1. Copy both the header and the source file to your project folder.
@@ -25,7 +28,8 @@ This is a rework of the excellent bit-banged TFT library by "David Johnson-Davie
 
 #### Minimum setup:
 ```
-ttft_init_disp_io ();
+ttft_init_disp_io (); //Optional, you can init the GPIOs in your code instead
+ttft_init_disp();     //Call to initialize display itself.
 ttft_clear_disp();
 ttft_disp_on();
 //...

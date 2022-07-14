@@ -17,10 +17,10 @@
 	-- all pins must be members of one port e.g. GPIOC
 	-- RESET pin of the LCD should be connected to MCU's reset, or an RC circuit.
 */
-#define dc		4		//Some displays call it A0
-#define mosi	5		//Some displays call it SDA
-#define sck		6		//Some displays call it SCL
-#define cs		7		//Some displays hard-wire this pin to GND by themselves. you can leave it here
+#define dc		6		//Some displays call it A0
+#define mosi	7		//Some displays call it SDA
+#define sck		5		//Some displays call it SCL
+#define cs		4		//Some displays hard-wire this pin to GND by themselves. you can leave it here
 
 /*
 	MCU SPECIFIC LIBRARY SETUP:
@@ -79,7 +79,7 @@
 // int16_t const xsize = 240, ysize = 135, xoff = 40, yoff = 52, invert = 1, rotate = 0, bgr = 0;
 
 // Adafruit 1.3" 240x240 display
-// int16_t const xsize = 240, ysize = 240, xoff = 0, yoff = 80, invert = 1, rotate = 5, bgr = 0;
+// int16_t const xsize = 240, ysize = 240, xoff = 0, yoff = 0, invert = 1, rotate = 0, bgr = 0;
 
 // Adafruit 1.54" 240x240 display
 // int16_t const xsize = 240, ysize = 240, xoff = 0, yoff = 80, invert = 1, rotate = 5, bgr = 0;
@@ -227,7 +227,7 @@ uint16_t tft_abs_16(int16_t inValue)
 #define Black			0
 
 // Current plot position and colours
-int16_t xpos, ypos;
+int16_t ttft_xpos, ttft_ypos;
 int16_t ttft_fore_color = White;
 int16_t ttft_back_color = Black;
 uint8_t ttft_text_scale = 1;     // Text ttft_text_scale
@@ -258,10 +258,15 @@ void Command2 (uint8_t c, uint16_t d1, uint16_t d2) {
   Data(d1>>8); Data(d1); Data(d2>>8); Data(d2);
 }
   
-void ttft_init_disp_io (void) {
+void ttft_init_disp_io (void) 
+{
   PORT_OUTPUT(1<<dc | 1<<cs | 1<<mosi | 1<<sck); // All outputs
   PORT_HIGH(1<<dc | 1<<cs | 1<<sck);       // Outputs high
-  PORT_TOGGLE(1<<cs);
+}
+
+void ttft_init_disp(void)
+{
+	PORT_TOGGLE(1<<cs);
   Command(0x01);                           // Software reset
   DELAY_MS(250);                              // delay 250 ms
   Command(0x36); Data(rotate<<5 | bgr<<3); // Set orientation and rgb/bgr
@@ -276,6 +281,24 @@ void ttft_disp_on (void) {
   PORT_TOGGLE(1<<cs);
   Command(0x29);                           // Display on
   DELAY_MS(150);
+  PORT_TOGGLE(1<<cs);
+}
+
+void ttft_clear_section(int16_t xx, int16_t yy)
+{
+	uint16_t i,j;
+	PORT_TOGGLE(1<<cs);
+  Command2(CASET, ttft_ypos+yoff, ttft_ypos+yoff+yy-1);
+  Command2(RASET, ttft_xpos+xoff, ttft_xpos+xoff+xx-1);
+	Command(0x3A); Data(0x03);               // 12-bit colour
+  Command(RAMWR);                          // Leaves mosi low
+  for (i=0; i<(xx-ttft_xpos)*4; i++) {
+    for (j=0; j<(yy-ttft_ypos)*3; j++) {
+    PORT_TOGGLE(1<<sck);
+    PORT_TOGGLE(1<<sck);
+    }
+  }
+  Command(0x3A); Data(0x05);               // ttft_back_color to 16-bit colour
   PORT_TOGGLE(1<<cs);
 }
 
@@ -302,7 +325,7 @@ int16_t ttft_get_color (int16_t r, int16_t g, int16_t b) {
 
 // Move current plot position to x,y
 void ttft_move_cursor (int16_t x, int16_t y) {
-  xpos = x; ypos = y;
+  ttft_xpos = x; ttft_ypos = y;
 }
 
 // Plot point at x,y
@@ -318,21 +341,21 @@ void ttft_plot_point (int16_t x, int16_t y) {
 void ttft_draw_line (int16_t x, int16_t y) {
   int16_t sx, sy, e2, err;
 	#ifdef USE_BUILTIN_ABS_FUNC
-  int16_t dx = tft_abs_16(x - xpos);
-  int16_t dy = tft_abs_16(y - ypos);
+  int16_t dx = tft_abs_16(x - ttft_xpos);
+  int16_t dy = tft_abs_16(y - ttft_ypos);
 	#else
-	int16_t dx = abs(x - xpos);
-  int16_t dy = abs(y - ypos);
+	int16_t dx = abs(x - ttft_xpos);
+  int16_t dy = abs(y - ttft_ypos);
 	#endif
-  if (xpos < x) sx = 1; else sx = -1;
-  if (ypos < y) sy = 1; else sy = -1;
+  if (ttft_xpos < x) sx = 1; else sx = -1;
+  if (ttft_ypos < y) sy = 1; else sy = -1;
   err = dx - dy;
   for (;;) {
-    ttft_plot_point(xpos, ypos);
-    if (xpos==x && ypos==y) return;
+    ttft_plot_point(ttft_xpos, ttft_ypos);
+    if (ttft_xpos==x && ttft_ypos==y) return;
     e2 = err<<1;
-    if (e2 > -dy) { err = err - dy; xpos = xpos + sx; }
-    if (e2 < dx) { err = err + dx; ypos = ypos + sy; }
+    if (e2 > -dy) { err = err - dy; ttft_xpos = ttft_xpos + sx; }
+    if (e2 < dx) { err = err + dx; ttft_ypos = ttft_ypos + sy; }
   }
 }
 
@@ -340,8 +363,8 @@ void ttft_draw_filled_rect (int16_t w, int16_t h) {
 	uint16_t i,j;
 	uint8_t hi,lo;
   PORT_TOGGLE(1<<cs);
-  Command2(CASET, ypos+yoff, ypos+yoff+h-1);
-  Command2(RASET, xpos+xoff, xpos+xoff+w-1);
+  Command2(CASET, ttft_ypos+yoff, ttft_ypos+yoff+h-1);
+  Command2(RASET, ttft_xpos+xoff, ttft_xpos+xoff+w-1);
   Command(RAMWR);
   hi = ttft_fore_color>>8;
   lo = ttft_fore_color & 0xff;
@@ -354,16 +377,16 @@ void ttft_draw_filled_rect (int16_t w, int16_t h) {
 }
 
 void ttft_draw_rect (int16_t w, int16_t h) {
-  int16_t x1 = xpos, y1 = ypos;
+  int16_t x1 = ttft_xpos, y1 = ttft_ypos;
   ttft_draw_filled_rect(w-1, 1); ttft_move_cursor(x1, y1+1);
   ttft_draw_filled_rect(1, h-1); ttft_move_cursor(x1+1, y1+h-1);
   ttft_draw_filled_rect(w-1, 1); ttft_move_cursor(x1+w-1, y1);
   ttft_draw_filled_rect(1, h-1);
-  xpos = x1; ypos = y1;
+  ttft_xpos = x1; ttft_ypos = y1;
 }
 
 void ttft_draw_filled_circle (int16_t radius) {
-  int16_t x1 = xpos, y1 = ypos, dx = 1, dy = 1;
+  int16_t x1 = ttft_xpos, y1 = ttft_ypos, dx = 1, dy = 1;
   int16_t x = radius - 1, y = 0;
   int16_t err = dx - (radius<<1);
   while (x >= y) {
@@ -379,11 +402,11 @@ void ttft_draw_filled_circle (int16_t radius) {
       dy = dy + 2;
     }
   }
-  xpos = x1; ypos = y1;
+  ttft_xpos = x1; ttft_ypos = y1;
 }
 
 void ttft_draw_circle (int16_t radius) {
-  int16_t x1 = xpos, y1 = ypos, dx = 1, dy = 1;
+  int16_t x1 = ttft_xpos, y1 = ttft_ypos, dx = 1, dy = 1;
   int16_t x = radius - 1, y = 0;
   int16_t err = dx - (radius<<1);
   while (x >= y) {
@@ -405,8 +428,8 @@ void ttft_draw_circle (int16_t radius) {
 void ttft_write_char (char c) {
   int16_t colour,xx,xr,yy,yr;
   PORT_TOGGLE(1<<cs);
-  Command2(CASET, yoff+ypos, yoff+ypos+8*ttft_text_scale-1);
-  Command2(RASET, xoff+xpos, xoff+xpos+6*ttft_text_scale-1);
+  Command2(CASET, yoff+ttft_ypos, yoff+ttft_ypos+8*ttft_text_scale-1);
+  Command2(RASET, xoff+ttft_xpos, xoff+ttft_xpos+6*ttft_text_scale-1);
   Command(RAMWR);
   for (xx=0; xx<6; xx++) {
     int16_t bits = CharMap[c-32][xx];
@@ -420,7 +443,7 @@ void ttft_write_char (char c) {
     }
   }
   PORT_TOGGLE(1<<cs);
-  xpos = xpos + 6*ttft_text_scale;
+  ttft_xpos = ttft_xpos + 6*ttft_text_scale;
 }
 
 // Plot text starting at the current plot position
@@ -484,7 +507,7 @@ void BarChart (void) {
   }
 }
 */
-
+/*
 void Waterfall (void) {
   int x0 = 0, y0 = 0, w = xsize, h = ysize, x1 = 15, y1 = 11;
   int factor = 5160/h*10;
@@ -528,4 +551,4 @@ void Waterfall (void) {
       ttft_fore_color = White;
     }
   }
-}
+}*/
